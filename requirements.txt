@@ -1,0 +1,42 @@
+# ============================================================
+# Movie-Rec — зависимости
+# Python 3.11 / 3.12 (на 3.14 часть пакетов без колёс)
+# ============================================================
+
+# ---------- Web / API ----------
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9          # для OAuth2 form-data (Swagger UI)
+
+# ---------- Валидация / схемы ----------
+pydantic==2.9.2
+pydantic-core==2.23.4
+email-validator==2.2.0           # если решишь валидировать email в UserCreate
+
+# ---------- БД ----------
+SQLAlchemy==2.0.35
+
+# ---------- Auth ----------
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1                    # 4.1+ ломает passlib warning'ом (__about__)
+python-jose[cryptography]==3.3.0
+
+# ---------- Алгоритмы / математика ----------
+numpy==1.26.4
+scipy==1.13.1
+scikit-learn==1.5.2
+
+# ---------- Утилиты ----------
+python-dotenv==1.0.1             # .env для JWT_SECRET и DATABASE_URL
+psutil==6.0.0                    # для --bench в build_cache.py
+
+# ============================================================
+# ОПЦИОНАЛЬНО — раскомментируй, когда дойдёшь до MF / hybrid
+# ============================================================
+# implicit==0.7.2                # ALS / BPR для matrix factorization
+# lightfm==1.17                  # hybrid recommender (content + CF)
+# surprise==0.1                  # SVD, KNNBaseline, SVD++ (для сравнения)
+# faiss-cpu==1.8.0               # ANN-поиск, если база фильмов станет большой
+# annoy==1.17.3                  # альтернатива FAISS, проще
+# networkx==3.3                  # графы user-item
+# tqdm==4.66.5                   # прогресс-бары в долгих циклах

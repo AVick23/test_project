@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie-Rec</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Background -->
+    <div class="bg-gradient"></div>
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div class="bg-orb orb-3"></div>
+
+    <!-- Navigation -->
+    <nav class="glass-nav" id="main-nav">
+        <div class="nav-container">
+            <a href="#/" class="nav-logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+                    <line x1="7" y1="2" x2="7" y2="22"></line>
+                    <line x1="17" y1="2" x2="17" y2="22"></line>
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <line x1="2" y1="7" x2="7" y2="7"></line>
+                    <line x1="2" y1="17" x2="7" y2="17"></line>
+                    <line x1="17" y1="7" x2="22" y2="7"></line>
+                    <line x1="17" y1="17" x2="22" y2="17"></line>
+                </svg>
+                <span>Movie-Rec</span>
+            </a>
+            <div class="nav-links" id="nav-links">
+                <a href="#/" class="nav-link active" data-route="home">Главная</a>
+                <a href="#/movies" class="nav-link" data-route="movies">Каталог</a>
+                <a href="#/profile" class="nav-link" data-route="profile">Профиль</a>
+                <a href="#/algorithms" class="nav-link" data-route="algorithms">Алгоритмы</a>
+            </div>
+            <div class="nav-actions">
+                <button class="glass-btn" id="auth-btn">Войти</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Auth Modal -->
+    <div class="modal-overlay" id="auth-modal" style="display:none">
+        <div class="modal glass-panel">
+            <div class="modal-header">
+                <h2 id="modal-title">Вход</h2>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="auth-form">
+                    <div class="form-group">
+                        <label>Имя пользователя</label>
+                        <input type="text" id="auth-username" class="glass-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Пароль</label>
+                        <input type="password" id="auth-password" class="glass-input" required>
+                    </div>
+                    <button type="submit" class="glass-btn glass-btn-primary">Войти</button>
+                </form>
+                <p class="auth-switch">
+                    <span id="auth-switch-text">Нет аккаунта?</span>
+                    <a href="#" id="auth-switch-link">Зарегистрироваться</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content" id="app">
+        <!-- Pages rendered here by JS -->
+    </main>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
