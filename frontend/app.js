@@ -221,7 +221,7 @@ class App {
             const hash = location.hash.slice(1) || '/';
             link.classList.toggle('active',
                 (route === 'home' && hash === '/') ||
-                (route === 'movies' && hash.startsWith('/movie')) ||
+                (route === 'movies' && (hash === '/movies' || hash.startsWith('/movie'))) ||
                 (route === 'profile' && hash === '/profile') ||
                 (route === 'algorithms' && hash === '/algorithms')
             );
@@ -329,7 +329,7 @@ class App {
                 <div class="section-header">
                     <div>
                         <h2 class="section-title">Рекомендации для вас</h2>
-                        <p class="section-subtitle">На основе алгоритма popularity</p>
+                        <p class="section-subtitle">Выберите алгоритм</p>
                     </div>
                     <select class="glass-btn glass-select" id="rec-algorithm">
                         <option value="popularity">Популярность</option>
@@ -368,8 +368,10 @@ class App {
 
         try {
             const data = await this.api.getRecommendations(algorithm, 12);
-            if (data && data.length) {
-                grid.innerHTML = data.map(m => this.renderMovieCard(m)).join('');
+            // API возвращает [{movie, score, rank}, ...]
+            const items = (data || []).map(r => r.movie ?? r);
+            if (items.length) {
+                grid.innerHTML = items.map(m => this.renderMovieCard(m)).join('');
             } else {
                 grid.innerHTML = MOCK.movies.slice(0, 12).map(m => this.renderMovieCard(m)).join('');
             }
@@ -386,8 +388,10 @@ class App {
 
         try {
             const data = await this.api.getMovies({ sort: 'popularity', limit: 12 });
-            if (data && data.length) {
-                grid.innerHTML = data.map(m => this.renderMovieCard(m)).join('');
+            // API возвращает {items: [...], total, page, limit, pages}
+            const items = data?.items ?? (Array.isArray(data) ? data : []);
+            if (items.length) {
+                grid.innerHTML = items.map(m => this.renderMovieCard(m)).join('');
             } else {
                 grid.innerHTML = MOCK.movies.slice(12, 24).map(m => this.renderMovieCard(m)).join('');
             }
@@ -403,7 +407,7 @@ class App {
         app.innerHTML = `
             <div class="section">
                 <h1 class="section-title" style="font-size:2rem; margin-bottom: 24px;">Каталог фильмов</h1>
-                
+
                 <div class="filters-bar">
                     <div class="filter-group search-input">
                         <label class="filter-label">Поиск</label>
@@ -413,12 +417,14 @@ class App {
                         <label class="filter-label">Жанр</label>
                         <select class="glass-input glass-select" id="filter-genre">
                             <option value="">Все</option>
-                            <option value="action">Боевик</option>
-                            <option value="drama">Драма</option>
-                            <option value="sci-fi">Фантастика</option>
-                            <option value="comedy">Комедия</option>
-                            <option value="thriller">Триллер</option>
-                            <option value="animation">Анимация</option>
+                            <option value="Action">Боевик</option>
+                            <option value="Drama">Драма</option>
+                            <option value="Sci-Fi">Фантастика</option>
+                            <option value="Comedy">Комедия</option>
+                            <option value="Thriller">Триллер</option>
+                            <option value="Animation">Анимация</option>
+                            <option value="Romance">Романтика</option>
+                            <option value="Horror">Ужасы</option>
                         </select>
                     </div>
                     <div class="filter-group">
@@ -446,7 +452,7 @@ class App {
 
         // Filter listeners
         let searchTimeout;
-        document.getElementById('filter-search').addEventListener('input', (e) => {
+        document.getElementById('filter-search').addEventListener('input', () => {
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => this.loadCatalog(), 300);
         });
@@ -459,18 +465,24 @@ class App {
         const grid = document.getElementById('catalog-grid');
         if (!grid) return;
 
-        const params = {
-            q: document.getElementById('filter-search')?.value || '',
-            genre: document.getElementById('filter-genre')?.value || '',
-            year: document.getElementById('filter-year')?.value || '',
-            sort: document.getElementById('filter-sort')?.value || 'popularity',
-            limit: 30,
-        };
+        const params = { sort: 'popularity', limit: 30 };
+
+        const q = document.getElementById('filter-search')?.value;
+        const genre = document.getElementById('filter-genre')?.value;
+        const year = document.getElementById('filter-year')?.value;
+        const sort = document.getElementById('filter-sort')?.value;
+
+        if (q)     params.q     = q;
+        if (genre) params.genre = genre;
+        if (year)  params.year  = year;
+        if (sort)  params.sort  = sort;
 
         try {
             const data = await this.api.getMovies(params);
-            if (data && data.length) {
-                grid.innerHTML = data.map(m => this.renderMovieCard(m)).join('');
+            // API возвращает {items: [...], total, page, limit, pages}
+            const items = data?.items ?? (Array.isArray(data) ? data : []);
+            if (items.length) {
+                grid.innerHTML = items.map(m => this.renderMovieCard(m)).join('');
             } else {
                 grid.innerHTML = MOCK.movies.map(m => this.renderMovieCard(m)).join('');
             }
@@ -496,6 +508,8 @@ class App {
             movie = MOCK.movies.find(m => m.id == id) || MOCK.movies[0];
         }
 
+        const rating = movie.vote_average ?? movie.rating;
+
         app.innerHTML = `
             <div class="movie-detail">
                 <div class="movie-detail-poster">
@@ -509,9 +523,9 @@ class App {
                     <div class="movie-detail-meta">
                         <span>📅 ${movie.year || '—'}</span>
                         <span>⏱ ${movie.runtime || '—'} мин</span>
-                        <span>⭐ ${movie.rating || '—'}</span>
+                        <span>⭐ ${rating || '—'}</span>
                     </div>
-                    
+
                     <div class="genre-tags">
                         ${(movie.genres || ['Drama', 'Thriller']).map(g => `<span class="genre-tag">${g}</span>`).join('')}
                     </div>
@@ -591,8 +605,10 @@ class App {
 
         try {
             const data = await this.api.getSimilarMovies(movieId, algorithm, 8);
-            if (data && data.length) {
-                grid.innerHTML = data.map(m => this.renderMovieCard(m)).join('');
+            // API возвращает [{movie, score, rank}, ...]
+            const items = (data || []).map(r => r.movie ?? r);
+            if (items.length) {
+                grid.innerHTML = items.map(m => this.renderMovieCard(m)).join('');
             } else {
                 grid.innerHTML = MOCK.movies.slice(0, 8).map(m => this.renderMovieCard(m)).join('');
             }
@@ -682,15 +698,15 @@ class App {
             const w = watched || [];
             const wl = watchlist || [];
 
-            document.getElementById('stat-watched').textContent = w.length || '24';
-            document.getElementById('stat-watchlist').textContent = wl.length || '12';
-            document.getElementById('stat-rated').textContent = '18';
-            document.getElementById('stat-avg').textContent = '4.2';
+            document.getElementById('stat-watched').textContent = w.length || '0';
+            document.getElementById('stat-watchlist').textContent = wl.length || '0';
+            document.getElementById('stat-rated').textContent = '—';
+            document.getElementById('stat-avg').textContent = '—';
         } catch (e) {
-            document.getElementById('stat-watched').textContent = '24';
-            document.getElementById('stat-watchlist').textContent = '12';
-            document.getElementById('stat-rated').textContent = '18';
-            document.getElementById('stat-avg').textContent = '4.2';
+            document.getElementById('stat-watched').textContent = '—';
+            document.getElementById('stat-watchlist').textContent = '—';
+            document.getElementById('stat-rated').textContent = '—';
+            document.getElementById('stat-avg').textContent = '—';
         }
     }
 
@@ -709,8 +725,10 @@ class App {
                 data = await this.api.getWatched(); // rated - same source, filtered
             }
 
-            if (data && data.length) {
-                grid.innerHTML = data.map(m => this.renderMovieCard(m)).join('');
+            // /users/me/watched и /users/me/watchlist возвращают list[MovieBrief], без обёртки
+            const items = Array.isArray(data) ? data : [];
+            if (items.length) {
+                grid.innerHTML = items.map(m => this.renderMovieCard(m)).join('');
             } else {
                 // Mock
                 const count = tab === 'watched' ? 12 : tab === 'watchlist' ? 8 : 6;
@@ -801,6 +819,9 @@ class App {
             ? `<img src="${TMDB_IMG_BASE}${movie.poster_path}" alt="${movie.title}" loading="lazy">`
             : `<span class="placeholder-icon">🎬</span>`;
 
+        // API отдаёт vote_average, mock — rating
+        const rating = movie.vote_average ?? movie.rating;
+
         return `
             <div class="movie-card" data-id="${movie.id}">
                 <div class="movie-card-poster">
@@ -816,9 +837,9 @@ class App {
                     <div class="movie-card-title">${movie.title}</div>
                     <div class="movie-card-meta">
                         <span>${movie.year || ''}</span>
-                        ${movie.rating ? `
+                        ${rating ? `
                             <span class="movie-card-rating">
-                                <span class="star">★</span> ${movie.rating}
+                                <span class="star">★</span> ${rating}
                             </span>
                         ` : ''}
                     </div>

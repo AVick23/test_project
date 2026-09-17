@@ -5,7 +5,7 @@ import os
 import logging
 from typing import Iterator
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
 
 logger = logging.getLogger("movie_rec.db")
@@ -77,7 +77,7 @@ def get_db() -> Iterator:
 def healthcheck() -> dict:
     try:
         db = SessionLocal()
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))   # ← было db.execute("SELECT 1")
         db.close()
         return {"status": "ok", "url": DATABASE_URL}
     except Exception as e:

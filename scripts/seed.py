@@ -217,7 +217,7 @@ class Seeder:
         logger.info(f"Created {self.movie_count} movies")
 
     # --------------------
-    # LINKS
+    # LINKS  (FIXED: skip duplicate tmdb_id)
     # --------------------
     def _seed_links(self):
         path = os.path.join(self.data_dir, "links.csv")
@@ -227,6 +227,9 @@ class Seeder:
 
         logger.info(f"Reading links from {path}")
         updated = 0
+        skipped_dupes = 0
+        skipped_empty = 0
+        seen_tmdb: set[int] = set()   # ← NEW: защита от UNIQUE constraint
 
         with open(path, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
@@ -235,19 +238,36 @@ class Seeder:
                 if movie_id not in self.allowed_movie_ids:
                     continue
 
-                tmdb_id = row.get("tmdbId", "").strip()
-                if not tmdb_id:
+                tmdb_id_str = row.get("tmdbId", "").strip()
+                if not tmdb_id_str:
+                    skipped_empty += 1
+                    continue
+
+                try:
+                    tmdb_id = int(tmdb_id_str)
+                except ValueError:
+                    skipped_empty += 1
+                    continue
+
+                # MovieLens links.csv содержит дубли tmdbId (переиздания,
+                # спецвыпуски, сборники) — пропускаем.
+                if tmdb_id in seen_tmdb:
+                    skipped_dupes += 1
                     continue
 
                 movie = self.db.query(Movie).filter(Movie.id == movie_id).first()
                 if movie:
-                    movie.tmdb_id = int(tmdb_id)
+                    movie.tmdb_id = tmdb_id
+                    seen_tmdb.add(tmdb_id)
                     updated += 1
 
                 if updated % 500 == 0 and updated > 0:
                     self.db.flush()
 
-        logger.info(f"Updated tmdb_id for {updated} movies")
+        logger.info(
+            f"Updated tmdb_id for {updated} movies "
+            f"(skipped: {skipped_dupes} duplicates, {skipped_empty} empty/invalid)"
+        )
 
     # --------------------
     # USERS + RATINGS
@@ -337,6 +357,40 @@ class Seeder:
 
         logger.info(f"Created {self.interaction_count} interactions")
 
+        # ============================================================
+        # Compute Movie.popularity / vote_average / vote_count from ratings
+        # ============================================================
+        # MovieLens ml-latest-small не содержит эти поля в movies.csv.
+        # Считаем их сами — так же, как это делает algorithms/popularity.py:
+        #   popularity   = количество оценок фильма
+        #   vote_count   = количество оценок фильма
+        #   vote_average = средняя оценка (1..5)
+        logger.info("Computing Movie.popularity / vote_average from ratings...")
+
+        agg = (
+            self.db.query(
+                Interaction.movie_id,
+                func.count(Interaction.id).label("cnt"),
+                func.avg(Interaction.value).label("avg"),
+            )
+            .filter(Interaction.event_type == "rated")
+            .group_by(Interaction.movie_id)
+            .all()
+        )
+
+        for movie_id, cnt, avg in agg:
+            self.db.query(Movie).filter(Movie.id == movie_id).update(
+                {
+                    "popularity": float(cnt),
+                    "vote_count": int(cnt),
+                    "vote_average": float(avg or 0.0),
+                },
+                synchronize_session=False,
+            )
+
+        self.db.commit()
+        logger.info(f"Updated popularity for {len(agg)} movies")
+
     # --------------------
     # SUMMARY
     # --------------------
@@ -346,11 +400,12 @@ class Seeder:
         interactions = self.db.query(func.count(Interaction.id)).scalar()
         states = self.db.query(func.count(UserMovieState.user_id)).scalar()
         genres = self.db.query(func.count(Genre.id)).scalar()
+        with_tmdb = self.db.query(func.count(Movie.tmdb_id)).scalar()
 
         print("\n" + "=" * 50)
         print("SEED COMPLETE")
         print("=" * 50)
-        print(f"  Movies:       {movies}")
+        print(f"  Movies:       {movies}  (with tmdb_id: {with_tmdb})")
         print(f"  Genres:       {genres}")
         print(f"  Users:        {users}")
         print(f"  Interactions: {interactions}")

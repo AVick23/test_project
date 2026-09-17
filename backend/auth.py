@@ -12,8 +12,8 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-from db import get_db
-from models import User
+from backend.db import get_db
+from backend.models import User
 
 logger = logging.getLogger("movie_rec.auth")
 

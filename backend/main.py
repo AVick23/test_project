@@ -7,7 +7,7 @@ FastAPI-приложение Movie-Rec.
 import sys
 import os
 
-# --- sys.path fix: чтобы работали и `from db import ...`, и `from algorithms...`
+# --- sys.path fix
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
 for _p in (_HERE, _ROOT):
@@ -21,23 +21,24 @@ from typing import Optional
 
 from fastapi import FastAPI, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
-from db import engine, SessionLocal, get_db
-from models import Base, Movie, Genre, User, Interaction
-from schemas import (
+from backend.db import engine, SessionLocal, get_db
+from backend.models import Base, Movie, Genre, User, Interaction
+from backend.schemas import (
     UserCreate, UserLogin, UserOut, Token,
     MovieOut, MovieBrief, PaginatedMovies,
     InteractionIn, InteractionOut, MovieStateOut,
     SimilarOut, RecommendationOut,
     AlgorithmInfo, CompareResult,
 )
-from auth import (
+from backend.auth import (
     create_token, require_user,
     register_user, authenticate_user, hash_password,
 )
-from services import (
+from backend.services import (
     record_interaction, delete_interaction, get_user_state,
     get_user_movies_by_status, get_movie_or_404,
     get_similar_movies, get_recommendations,
@@ -81,13 +82,27 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ── FIX #2: allow_credentials=False (JWT в Authorization header, не в cookie)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ==============================
+# STATIC FRONTEND
+# ==============================
+_FRONTEND_DIR = os.path.join(_ROOT, "frontend")
+if os.path.isdir(_FRONTEND_DIR):
+    app.mount(
+        "/app",
+        StaticFiles(directory=_FRONTEND_DIR, html=True),
+        name="frontend",
+    )
+    logger.info(f"Frontend mounted at /app → {_FRONTEND_DIR}")
 
 
 # ==============================
@@ -127,8 +142,13 @@ def list_movies(
 
     if q:
         query = query.filter(Movie.title.ilike(f"%{q}%"))
+
+    # ── FIX #1: Movie.genres.any() вместо join — без дублей
     if genre:
-        query = query.join(Movie.genres).filter(Genre.name.ilike(f"%{genre}%"))
+        query = query.filter(
+            Movie.genres.any(Genre.name.ilike(f"%{genre}%"))
+        )
+
     if year:
         query = query.filter(Movie.year >= year)
 
@@ -286,6 +306,7 @@ def root():
     return {
         "service": "Movie-Rec API",
         "docs": "/docs",
+        "frontend": "/app/",
         "time": datetime.utcnow().isoformat(),
     }
 
@@ -305,4 +326,4 @@ def health(db: Session = Depends(get_db)):
 # ==============================
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
